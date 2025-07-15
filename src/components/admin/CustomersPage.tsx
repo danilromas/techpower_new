@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,69 +16,7 @@ import {
   Plus
 } from 'lucide-react';
 import { SellBuildModal } from './modals/SellBuildModal';
-
-const customers = [
-  {
-    id: 1,
-    name: 'Иван Петров',
-    email: 'ivan.petrov@example.com',
-    phone: '+7 (999) 123-45-67',
-    city: 'Москва',
-    totalOrders: 8,
-    totalSpent: 456000,
-    lastOrder: '2024-01-15',
-    status: 'VIP',
-    registered: '2023-05-12'
-  },
-  {
-    id: 2,
-    name: 'Анна Сидорова',
-    email: 'anna.sidorova@example.com',
-    phone: '+7 (999) 234-56-78',
-    city: 'Санкт-Петербург',
-    totalOrders: 3,
-    totalSpent: 189000,
-    lastOrder: '2024-01-14',
-    status: 'Постоянный',
-    registered: '2023-08-22'
-  },
-  {
-    id: 3,
-    name: 'Михаил Козлов',
-    email: 'mikhail.kozlov@example.com',
-    phone: '+7 (999) 345-67-89',
-    city: 'Казань',
-    totalOrders: 12,
-    totalSpent: 675000,
-    lastOrder: '2024-01-13',
-    status: 'VIP',
-    registered: '2023-03-08'
-  },
-  {
-    id: 4,
-    name: 'Елена Васильева',
-    email: 'elena.vasileva@example.com',
-    phone: '+7 (999) 456-78-90',
-    city: 'Екатеринбург',
-    totalOrders: 1,
-    totalSpent: 78000,
-    lastOrder: '2024-01-16',
-    status: 'Новый',
-    registered: '2024-01-10'
-  },
-  {
-    id: 5,
-    name: 'Дмитрий Смирнов',
-    email: 'dmitry.smirnov@example.com',
-    phone: '+7 (999) 567-89-01',
-    city: 'Новосибирск',
-    totalOrders: 5,
-    totalSpent: 234000,
-    lastOrder: '2024-01-12',
-    status: 'Постоянный',
-    registered: '2023-09-15'
-  },
-];
+import { customersApi } from '@/api';
 
 // Mock builds для быстрой продажи
 const availableBuilds = [
@@ -101,9 +39,49 @@ const availableBuilds = [
 ];
 
 export function CustomersPage() {
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
   const [selectedBuild, setSelectedBuild] = useState<any>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    customersApi.getAll()
+      .then(setCustomers)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleAddCustomer = async (customerData: any) => {
+    try {
+      const res = await customersApi.add(customerData);
+      const newCustomer = await customersApi.get(res.id);
+      setCustomers(prev => [...prev, newCustomer]);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const handleUpdateCustomer = async (id: number, customerData: any) => {
+    try {
+      await customersApi.update(id, customerData);
+      const updated = await customersApi.get(id);
+      setCustomers(prev => prev.map(c => c.id === id ? updated : c));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const handleDeleteCustomer = async (id: number) => {
+    try {
+      await customersApi.delete(id);
+      setCustomers(prev => prev.filter(c => c.id !== id));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
 
   const handleQuickSell = (build: any) => {
     setSelectedBuild(build);

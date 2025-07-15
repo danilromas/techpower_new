@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { AddProductModal } from './modals/AddProductModal';
+import { productsApi } from '@/api';
 
 interface Product {
   id: number;
@@ -27,42 +28,6 @@ interface Product {
   specifications: string;
 }
 
-const mockProducts: Product[] = [
-  {
-    id: 1,
-    name: 'Intel Core i5-13600K',
-    brand: 'Intel',
-    category: 'cpu',
-    price: 25000,
-    stock: 50,
-    image: '/placeholder.svg',
-    description: 'Процессор Intel Core i5-13600K',
-    specifications: 'LGA1700, 14 ядер, 20 потоков, 3.5 ГГц'
-  },
-  {
-    id: 2,
-    name: 'RTX 4070',
-    brand: 'Nvidia',
-    category: 'gpu',
-    price: 55000,
-    stock: 30,
-    image: '/placeholder.svg',
-    description: 'Видеокарта RTX 4070',
-    specifications: '12GB GDDR6X, 192-bit, PCIe 4.0'
-  },
-  {
-    id: 3,
-    name: 'Corsair 16GB DDR4-3200',
-    brand: 'Corsair',
-    category: 'ram',
-    price: 6000,
-    stock: 100,
-    image: '/placeholder.svg',
-    description: 'Оперативная память Corsair 16GB DDR4-3200',
-    specifications: '16GB (2x8GB), DDR4, 3200MHz'
-  }
-];
-
 const categoryLabels = {
   cpu: 'Процессоры',
   gpu: 'Видеокарты',
@@ -75,16 +40,55 @@ const categoryLabels = {
 };
 
 export function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'price' | 'stock' | 'name'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  useEffect(() => {
+    setLoading(true);
+    productsApi.getAll()
+      .then(setProducts)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleAddProduct = async (productData: any) => {
+    try {
+      const res = await productsApi.add(productData);
+      const newProduct = await productsApi.get(res.id);
+      setProducts(prev => [...prev, newProduct]);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const handleUpdateProduct = async (id: number, productData: any) => {
+    try {
+      await productsApi.update(id, productData);
+      const updated = await productsApi.get(id);
+      setProducts(prev => prev.map(p => p.id === id ? updated : p));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const handleDeleteProduct = async (id: number) => {
+    try {
+      await productsApi.delete(id);
+      setProducts(prev => prev.filter(p => p.id !== id));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           product.brand.toLowerCase().includes(searchTerm.toLowerCase());
+      product.brand.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   }).sort((a, b) => {
@@ -94,15 +98,6 @@ export function ProductsPage() {
     }
     return (a[sortBy] - b[sortBy]) * order;
   });
-
-  const handleAddProduct = (productData: any) => {
-    const newProduct = {
-      ...productData,
-      id: Math.max(...products.map(p => p.id)) + 1,
-      image: '/placeholder.svg'
-    };
-    setProducts([...products, newProduct]);
-  };
 
   return (
     <div className="space-y-6">

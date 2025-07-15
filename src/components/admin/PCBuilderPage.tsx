@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { CreatePCBuildModal } from './modals/CreatePCBuildModal';
 import { SellBuildModal } from './modals/SellBuildModal';
+import { pcbuildsApi } from '@/api';
 
 interface PCBuild {
   id: number;
@@ -40,55 +41,6 @@ interface PCBuild {
   isCompatible: boolean;
 }
 
-const mockBuilds: PCBuild[] = [
-  {
-    id: 1,
-    name: 'Сборка для игр 2024',
-    description: 'Отличная сборка для современных игр',
-    components: [
-      { type: 'cpu', component: { id: 1, name: 'Intel Core i5-13600K', price: 25000 } },
-      { type: 'gpu', component: { id: 4, name: 'RTX 4070', price: 55000 } },
-      { type: 'ram', component: { id: 7, name: 'Corsair 16GB DDR4-3200', price: 6000 } },
-      { type: 'motherboard', component: { id: 10, name: 'ASUS Z790-P', price: 18000 } },
-      { type: 'storage', component: { id: 19, name: 'Samsung 980 Pro 1TB NVMe', price: 8000 } },
-      { type: 'psu', component: { id: 13, name: 'Corsair RM750x', price: 12000 } },
-      { type: 'cooler', component: { id: 22, name: 'Noctua NH-D15', price: 7000 } },
-      { type: 'case', component: { id: 16, name: 'Fractal Design Define 7', price: 15000 } }
-    ],
-    totalPrice: 146000,
-    markup: 15,
-    markupType: 'percentage' as const,
-    finalPrice: 167900,
-    profit: 21900,
-    createdAt: '2024-01-10',
-    status: 'published' as const,
-    isCompatible: true
-  },
-  {
-    id: 2,
-    name: 'Бюджетная сборка',
-    description: 'Сборка для работы и учебы',
-    components: [
-      { type: 'cpu', component: { id: 2, name: 'AMD Ryzen 5 7600X', price: 23000 } },
-      { type: 'gpu', component: { id: 5, name: 'RTX 4060', price: 35000 } },
-      { type: 'ram', component: { id: 8, name: 'G.Skill 32GB DDR5-5600', price: 15000 } },
-      { type: 'motherboard', component: { id: 11, name: 'MSI B650M Pro', price: 12000 } },
-      { type: 'storage', component: { id: 20, name: 'Kingston NV2 500GB', price: 4000 } },
-      { type: 'psu', component: { id: 14, name: 'EVGA 650W Gold', price: 8000 } },
-      { type: 'cooler', component: { id: 23, name: 'be quiet! Pure Rock 2', price: 3500 } },
-      { type: 'case', component: { id: 17, name: 'NZXT H7 Flow', price: 12000 } }
-    ],
-    totalPrice: 112500,
-    markup: 10000,
-    markupType: 'fixed' as const,
-    finalPrice: 122500,
-    profit: 10000,
-    createdAt: '2024-01-05',
-    status: 'published' as const,
-    isCompatible: true
-  }
-];
-
 const statusLabels = {
   draft: 'Черновик',
   published: 'Опубликовано',
@@ -96,7 +48,9 @@ const statusLabels = {
 };
 
 export function PCBuilderPage() {
-  const [builds, setBuilds] = useState<PCBuild[]>(mockBuilds);
+  const [builds, setBuilds] = useState<PCBuild[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -104,6 +58,18 @@ export function PCBuilderPage() {
   const [selectedBuildForSale, setSelectedBuildForSale] = useState<PCBuild | null>(null);
   const [editingPrices, setEditingPrices] = useState<{[key: number]: boolean}>({});
   const [tempMarkup, setTempMarkup] = useState<{[key: number]: {value: number, type: 'percentage' | 'fixed'}}>({});
+
+  // Загрузка сборок с сервера
+  useEffect(() => {
+    setLoading(true);
+    pcbuildsApi.getAll()
+      .then((data) => {
+        setBuilds(data);
+        setError(null);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredBuilds = builds.filter(build => {
     const matchesSearch = build.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -120,17 +86,15 @@ export function PCBuilderPage() {
     return { finalPrice, profit };
   };
 
-  const handleCreateBuild = (buildData: any) => {
-    const { finalPrice, profit } = calculatePrices(buildData.totalPrice, buildData.markup, buildData.markupType);
-    const newBuild = {
-      ...buildData,
-      finalPrice,
-      profit,
-      id: Math.max(...builds.map(b => b.id)) + 1,
-      createdAt: new Date().toISOString().split('T')[0],
-      status: 'draft' as const
-    };
-    setBuilds([...builds, newBuild]);
+  const handleCreateBuild = async (buildData: any) => {
+    try {
+      await pcbuildsApi.add(buildData);
+      // Перезагрузить список после добавления
+      const data = await pcbuildsApi.getAll();
+      setBuilds(data);
+    } catch (e: any) {
+      setError(e.message);
+    }
   };
 
   const handleEditPrices = (buildId: number) => {
@@ -144,26 +108,22 @@ export function PCBuilderPage() {
     }
   };
 
-  const handleSavePrices = (buildId: number) => {
+  const handleSavePrices = async (buildId: number) => {
     const markup = tempMarkup[buildId];
     if (!markup) return;
-
-    setBuilds(prevBuilds =>
-      prevBuilds.map(build => {
-        if (build.id === buildId) {
-          const { finalPrice, profit } = calculatePrices(build.totalPrice, markup.value, markup.type);
-          return {
-            ...build,
-            markup: markup.value,
-            markupType: markup.type,
-            finalPrice,
-            profit
-          };
-        }
-        return build;
-      })
-    );
-    
+    const build = builds.find(b => b.id === buildId);
+    if (!build) return;
+    try {
+      await pcbuildsApi.update(buildId, {
+        ...build,
+        markup: markup.value,
+        markupType: markup.type,
+      });
+      const data = await pcbuildsApi.getAll();
+      setBuilds(data);
+    } catch (e: any) {
+      setError(e.message);
+    }
     setEditingPrices({ ...editingPrices, [buildId]: false });
     const newTempMarkup = { ...tempMarkup };
     delete newTempMarkup[buildId];
@@ -183,33 +143,44 @@ export function PCBuilderPage() {
   };
 
   const handleBuildSold = (customerId: number, buildId: number, customerData: any, storeId: number) => {
-    console.log('Сборка продана:', { customerId, buildId, customerData, storeId });
-    // Здесь можно добавить логику создания заказа
+    // TODO: реализовать создание заказа через backend, если потребуется
     const storeName = storeId === 1 ? 'Магазин на Тверской' : 
                      storeId === 2 ? 'Магазин в ТЦ Европейский' : 
                      storeId === 3 ? 'Магазин на Арбате' : 'Интернет-магазин';
     alert(`Сборка "${selectedBuildForSale?.name}" продана клиенту ${customerData.name} через ${storeName}`);
   };
 
-  const handlePublishBuild = (buildId: number) => {
-    setBuilds(builds.map(build => 
-      build.id === buildId 
-        ? { ...build, status: 'published' as const }
-        : build
-    ));
+  const handlePublishBuild = async (buildId: number) => {
+    const build = builds.find(b => b.id === buildId);
+    if (!build) return;
+    try {
+      await pcbuildsApi.update(buildId, { ...build, status: 'published' });
+      const data = await pcbuildsApi.getAll();
+      setBuilds(data);
+    } catch (e: any) {
+      setError(e.message);
+    }
   };
 
-  const handleArchiveBuild = (buildId: number) => {
-    setBuilds(builds.map(build => 
-      build.id === buildId 
-        ? { ...build, status: 'archived' as const }
-        : build
-    ));
+  const handleArchiveBuild = async (buildId: number) => {
+    const build = builds.find(b => b.id === buildId);
+    if (!build) return;
+    try {
+      await pcbuildsApi.update(buildId, { ...build, status: 'archived' });
+      const data = await pcbuildsApi.getAll();
+      setBuilds(data);
+    } catch (e: any) {
+      setError(e.message);
+    }
   };
 
-  const handleDeleteBuild = (buildId: number) => {
-    if (confirm('Вы уверены, что хотите удалить эту сборку?')) {
+  const handleDeleteBuild = async (buildId: number) => {
+    if (!window.confirm('Вы уверены, что хотите удалить эту сборку?')) return;
+    try {
+      await pcbuildsApi.delete(buildId);
       setBuilds(builds.filter(build => build.id !== buildId));
+    } catch (e: any) {
+      setError(e.message);
     }
   };
 
@@ -275,7 +246,20 @@ export function PCBuilderPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredBuilds.map((build) => (
+                {loading ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center">Загрузка...</td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-red-600">{error}</td>
+                  </tr>
+                ) : filteredBuilds.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center">Сборок не найдено.</td>
+                  </tr>
+                ) : (
+                  filteredBuilds.map((build) => (
                   <tr key={build.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-4">
                       <div className="font-medium">{build.name}</div>

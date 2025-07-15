@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ordersApi } from '@/api';
 
 const orders = [
   {
@@ -87,14 +88,24 @@ const orders = [
 ];
 
 export function OrdersPage() {
+  const [ordersData, setOrdersData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [viewOrderModal, setViewOrderModal] = useState(false);
   const [changeStatusModal, setChangeStatusModal] = useState(false);
   const [addOrderModal, setAddOrderModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [ordersData, setOrdersData] = useState(orders);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setLoading(true);
+    ordersApi.getAll()
+      .then(setOrdersData)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -126,40 +137,42 @@ export function OrdersPage() {
     setChangeStatusModal(true);
   };
 
-  const handleStatusChange = (orderId: string, newStatus: string, comment: string) => {
-    setOrdersData(prevOrders =>
-      prevOrders.map(order =>
-        order.id === orderId ? { ...order, status: newStatus } : order
-      )
-    );
-    
-    toast({
-      title: "Статус изменен",
-      description: `Статус заказа ${orderId} изменен на "${newStatus}"`,
-    });
+  const handleStatusChange = async (orderId: string, newStatus: string, comment: string) => {
+    try {
+      await ordersApi.update(orderId, { status: newStatus });
+      const updated = await ordersApi.get(orderId);
+      setOrdersData(prev => prev.map(o => o.id === orderId ? updated : o));
+      toast({ title: 'Статус изменен', description: `Статус заказа ${orderId} изменен на "${newStatus}"` });
+    } catch (e: any) {
+      setError(e.message);
+    }
   };
 
-  const handleAddOrder = (newOrderData: any) => {
-    const newOrder = {
-      id: `#ORD-${String(ordersData.length + 1).padStart(3, '0')}`,
-      ...newOrderData,
-      date: new Date().toISOString().split('T')[0],
-      items: newOrderData.items.length,
-      status: 'Принят'
-    };
+  const handleAddOrder = async (newOrderData: any) => {
+    try {
+      const res = await ordersApi.add(newOrderData);
+      const newOrder = await ordersApi.get(res.id);
+      setOrdersData(prev => [newOrder, ...prev]);
+      toast({ title: 'Заказ создан', description: `Новый заказ ${newOrder.id} успешно создан` });
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
 
-    setOrdersData([newOrder, ...ordersData]);
-    
-    toast({
-      title: "Заказ создан",
-      description: `Новый заказ ${newOrder.id} успешно создан`,
-    });
+  const handleDeleteOrder = async (orderId: string) => {
+    try {
+      await ordersApi.delete(orderId);
+      setOrdersData(prev => prev.filter(o => o.id !== orderId));
+      toast({ title: 'Заказ удалён', description: `Заказ ${orderId} удалён` });
+    } catch (e: any) {
+      setError(e.message);
+    }
   };
 
   const filteredOrders = ordersData.filter(order => {
     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.city.toLowerCase().includes(searchTerm.toLowerCase());
+      order.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.city.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedStatus === 'all' || order.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });

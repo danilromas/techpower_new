@@ -1,49 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Building, Phone, Mail, Plus } from 'lucide-react';
-
-const mockSuppliers = [
-  {
-    id: 1,
-    name: 'DNS',
-    contact: 'Иванов И.И.',
-    phone: '+7 (495) 123-45-67',
-    email: 'dns@example.com',
-    address: 'Москва, ул. Ленина, 1',
-    rating: 4.8,
-    deliveryTime: '1-2 дня',
-    paymentTerms: '30 дней',
-    status: 'Активный'
-  },
-  {
-    id: 2,
-    name: 'Ситилинк',
-    contact: 'Петров П.П.',
-    phone: '+7 (495) 234-56-78',
-    email: 'citilink@example.com',
-    address: 'СПб, Невский пр., 10',
-    rating: 4.5,
-    deliveryTime: '2-3 дня',
-    paymentTerms: '14 дней',
-    status: 'Активный'
-  },
-  {
-    id: 3,
-    name: 'Regard',
-    contact: 'Сидоров С.С.',
-    phone: '+7 (495) 345-67-89',
-    email: 'regard@example.com',
-    address: 'Москва, ул. Тверская, 5',
-    rating: 4.2,
-    deliveryTime: '3-5 дней',
-    paymentTerms: '21 день',
-    status: 'Неактивный'
-  }
-];
+import { suppliersApi } from '@/api';
 
 const mockDeliveries = [
   { id: 1, supplier: 'DNS', orderDate: '2024-01-15', expectedDate: '2024-01-17', status: 'В пути', amount: 125000 },
@@ -52,13 +14,54 @@ const mockDeliveries = [
 ];
 
 export function SuppliersPage() {
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('suppliers');
 
-  const filteredSuppliers = mockSuppliers.filter(supplier =>
-    supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.contact.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    setLoading(true);
+    suppliersApi.getAll()
+      .then(setSuppliers)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleAddSupplier = async (supplierData: any) => {
+    try {
+      const res = await suppliersApi.add(supplierData);
+      const newSupplier = await suppliersApi.get(res.id);
+      setSuppliers(prev => [...prev, newSupplier]);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const handleUpdateSupplier = async (id: number, supplierData: any) => {
+    try {
+      await suppliersApi.update(id, supplierData);
+      const updated = await suppliersApi.get(id);
+      setSuppliers(prev => prev.map(s => s.id === id ? updated : s));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const handleDeleteSupplier = async (id: number) => {
+    try {
+      await suppliersApi.delete(id);
+      setSuppliers(prev => prev.filter(s => s.id !== id));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const filteredSuppliers = suppliers.filter(supplier => {
+    return supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.email.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -102,7 +105,7 @@ export function SuppliersPage() {
             <Building className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockSuppliers.length}</div>
+            <div className="text-2xl font-bold">{suppliers.length}</div>
           </CardContent>
         </Card>
         
@@ -113,7 +116,7 @@ export function SuppliersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {mockSuppliers.filter(s => s.status === 'Активный').length}
+              {suppliers.filter(s => s.status === 'Активный').length}
             </div>
           </CardContent>
         </Card>
