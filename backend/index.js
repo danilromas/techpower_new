@@ -80,7 +80,7 @@ app.get('/products/:id', (req, res) => {
   });
 });
 // Создать продукт
-app.post('/products', authenticateToken, (req, res) => {
+app.post('/products', (req, res) => {
   const { name, brand, category, price, stock, image, description, specifications } = req.body;
   db.run(
     'INSERT INTO products (name, brand, category, price, stock, image, description, specifications) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -92,7 +92,7 @@ app.post('/products', authenticateToken, (req, res) => {
   );
 });
 // Обновить продукт
-app.put('/products/:id', authenticateToken, (req, res) => {
+app.put('/products/:id', (req, res) => {
   const { name, brand, category, price, stock, image, description, specifications } = req.body;
   db.run(
     'UPDATE products SET name=?, brand=?, category=?, price=?, stock=?, image=?, description=?, specifications=? WHERE id=?',
@@ -104,7 +104,7 @@ app.put('/products/:id', authenticateToken, (req, res) => {
   );
 });
 // Удалить продукт
-app.delete('/products/:id', authenticateToken, (req, res) => {
+app.delete('/products/:id', (req, res) => {
   db.run('DELETE FROM products WHERE id=?', [req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ deleted: this.changes });
@@ -151,7 +151,7 @@ app.get('/pcbuilds/:id', (req, res) => {
   });
 });
 // Создать сборку ПК
-app.post('/pcbuilds', authenticateToken, (req, res) => {
+app.post('/pcbuilds', (req, res) => {
   const { name, description, components, totalPrice, markup, markupType, isCompatible } = req.body;
   db.run(
     'INSERT INTO pc_builds (name, description, components, totalPrice, markup, markupType, finalPrice, profit, createdAt, status, isCompatible) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -175,7 +175,7 @@ app.post('/pcbuilds', authenticateToken, (req, res) => {
   );
 });
 // Обновить сборку ПК
-app.put('/pcbuilds/:id', authenticateToken, (req, res) => {
+app.put('/pcbuilds/:id', (req, res) => {
   const { name, description, components, totalPrice, markup, markupType, isCompatible } = req.body;
   db.run(
     'UPDATE pc_builds SET name=?, description=?, components=?, totalPrice=?, markup=?, markupType=?, isCompatible=? WHERE id=?',
@@ -196,7 +196,7 @@ app.put('/pcbuilds/:id', authenticateToken, (req, res) => {
   );
 });
 // Удалить сборку ПК
-app.delete('/pcbuilds/:id', authenticateToken, (req, res) => {
+app.delete('/pcbuilds/:id', (req, res) => {
   db.run('DELETE FROM pc_builds WHERE id=?', [req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ deleted: this.changes });
@@ -220,7 +220,7 @@ app.get('/customers/:id', (req, res) => {
   });
 });
 // Создать клиента
-app.post('/customers', authenticateToken, (req, res) => {
+app.post('/customers', (req, res) => {
   const { name, phone, email, city } = req.body;
   db.run(
     'INSERT INTO customers (name, phone, email, city, totalOrders, totalSpent, lastOrder, status, registered) VALUES (?, ?, ?, ?, 0, 0, NULL, NULL, ?)',
@@ -232,7 +232,7 @@ app.post('/customers', authenticateToken, (req, res) => {
   );
 });
 // Обновить клиента
-app.put('/customers/:id', authenticateToken, (req, res) => {
+app.put('/customers/:id', (req, res) => {
   const { name, phone, email, city } = req.body;
   db.run(
     'UPDATE customers SET name=?, phone=?, email=?, city=? WHERE id=?',
@@ -244,7 +244,7 @@ app.put('/customers/:id', authenticateToken, (req, res) => {
   );
 });
 // Удалить клиента
-app.delete('/customers/:id', authenticateToken, (req, res) => {
+app.delete('/customers/:id', (req, res) => {
   db.run('DELETE FROM customers WHERE id=?', [req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ deleted: this.changes });
@@ -304,7 +304,7 @@ app.get('/orders/:id', (req, res) => {
   });
 });
 // Создать заказ
-app.post('/orders', authenticateToken, (req, res) => {
+app.post('/orders', (req, res) => {
   const { customer, phone, city, manager, items, total, notes } = req.body;
   const id = '#ORD-' + Math.floor(Math.random() * 900 + 100) + '-' + Date.now();
   db.run(
@@ -323,7 +323,7 @@ app.post('/orders', authenticateToken, (req, res) => {
   );
 });
 // Обновить заказ (только статус и менеджер)
-app.put('/orders/:id', authenticateToken, (req, res) => {
+app.put('/orders/:id', (req, res) => {
   const { status, manager } = req.body;
   db.run(
     'UPDATE orders SET status=?, manager=? WHERE id=?',
@@ -335,7 +335,7 @@ app.put('/orders/:id', authenticateToken, (req, res) => {
   );
 });
 // Удалить заказ и его товары
-app.delete('/orders/:id', authenticateToken, (req, res) => {
+app.delete('/orders/:id', (req, res) => {
   db.run('DELETE FROM orders WHERE id=?', [req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     db.run('DELETE FROM order_items WHERE orderId=?', [req.params.id], function(err2) {
@@ -385,7 +385,7 @@ app.get('/suppliers/:id', (req, res) => {
   });
 });
 // Создать поставщика
-app.post('/suppliers', authenticateToken, (req, res) => {
+app.post('/suppliers', (req, res) => {
   const { name, contact, phone, email, address, rating, deliveryTime, paymentTerms, status } = req.body;
   db.run(
     'INSERT INTO suppliers (name, contact, phone, email, address, rating, deliveryTime, paymentTerms, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -397,7 +397,7 @@ app.post('/suppliers', authenticateToken, (req, res) => {
   );
 });
 // Обновить поставщика
-app.put('/suppliers/:id', authenticateToken, (req, res) => {
+app.put('/suppliers/:id', (req, res) => {
   const { name, contact, phone, email, address, rating, deliveryTime, paymentTerms, status } = req.body;
   db.run(
     'UPDATE suppliers SET name=?, contact=?, phone=?, email=?, address=?, rating=?, deliveryTime=?, paymentTerms=?, status=? WHERE id=?',
@@ -409,7 +409,7 @@ app.put('/suppliers/:id', authenticateToken, (req, res) => {
   );
 });
 // Удалить поставщика
-app.delete('/suppliers/:id', authenticateToken, (req, res) => {
+app.delete('/suppliers/:id', (req, res) => {
   db.run('DELETE FROM suppliers WHERE id=?', [req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ deleted: this.changes });
@@ -433,7 +433,7 @@ app.get('/inventory/:id', (req, res) => {
   });
 });
 // Создать позицию склада
-app.post('/inventory', authenticateToken, (req, res) => {
+app.post('/inventory', (req, res) => {
   const { name, category, stock, minStock, price, supplier } = req.body;
   db.run(
     'INSERT INTO inventory (name, category, stock, minStock, price, supplier) VALUES (?, ?, ?, ?, ?, ?)',
@@ -445,7 +445,7 @@ app.post('/inventory', authenticateToken, (req, res) => {
   );
 });
 // Обновить позицию склада
-app.put('/inventory/:id', authenticateToken, (req, res) => {
+app.put('/inventory/:id', (req, res) => {
   const { name, category, stock, minStock, price, supplier } = req.body;
   db.run(
     'UPDATE inventory SET name=?, category=?, stock=?, minStock=?, price=?, supplier=? WHERE id=?',
@@ -457,7 +457,7 @@ app.put('/inventory/:id', authenticateToken, (req, res) => {
   );
 });
 // Удалить позицию склада
-app.delete('/inventory/:id', authenticateToken, (req, res) => {
+app.delete('/inventory/:id', (req, res) => {
   db.run('DELETE FROM inventory WHERE id=?', [req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ deleted: this.changes });
@@ -465,7 +465,7 @@ app.delete('/inventory/:id', authenticateToken, (req, res) => {
 });
 
 // DASHBOARD/ANALYTICS STATISTICS
-app.get('/stats/summary', authenticateToken, (req, res) => {
+app.get('/stats/summary', (req, res) => {
   // Получаем общую сумму продаж, количество заказов, клиентов, средний чек, топ-5 товаров
   db.serialize(() => {
     let stats = {};
@@ -491,7 +491,7 @@ app.get('/stats/summary', authenticateToken, (req, res) => {
 });
 
 // REPORTS: выгрузка заказов за период
-app.get('/reports/orders', authenticateToken, (req, res) => {
+app.get('/reports/orders', (req, res) => {
   const { from, to } = req.query;
   let query = 'SELECT * FROM orders';
   let params = [];
@@ -513,4 +513,15 @@ app.get('/reports/orders', authenticateToken, (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`);
-}); 
+});
+
+// Ловим необработанные ошибки процесса
+process.on('uncaughtException', err => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', err => {
+  console.error('Unhandled Rejection:', err);
+});
+
+// Не даём процессу завершиться (для Windows/PowerShell)
+setInterval(() => {}, 1000); 

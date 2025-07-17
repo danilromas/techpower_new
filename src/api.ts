@@ -1,16 +1,15 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 function getToken() {
-  return localStorage.getItem('jwtToken');
+  return null; // Отключаем токен полностью
 }
 
 async function apiFetch(path: string, options: RequestInit = {}) {
-  const token = getToken();
+  // Не добавляем Authorization
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...Object.fromEntries(Object.entries(options.headers || {}).map(([k, v]) => [k, String(v)])),
   };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,

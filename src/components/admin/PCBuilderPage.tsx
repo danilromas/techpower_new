@@ -25,6 +25,7 @@ import {
 import { CreatePCBuildModal } from './modals/CreatePCBuildModal';
 import { SellBuildModal } from './modals/SellBuildModal';
 import { pcbuildsApi } from '@/api';
+import { ordersApi } from '@/api';
 
 interface PCBuild {
   id: number;
@@ -142,12 +143,30 @@ export function PCBuilderPage() {
     setIsSellModalOpen(true);
   };
 
-  const handleBuildSold = (customerId: number, buildId: number, customerData: any, storeId: number) => {
-    // TODO: реализовать создание заказа через backend, если потребуется
-    const storeName = storeId === 1 ? 'Магазин на Тверской' : 
-                     storeId === 2 ? 'Магазин в ТЦ Европейский' : 
-                     storeId === 3 ? 'Магазин на Арбате' : 'Интернет-магазин';
-    alert(`Сборка "${selectedBuildForSale?.name}" продана клиенту ${customerData.name} через ${storeName}`);
+  const handleBuildSold = async (customerId: number, buildId: number, customerData: any, storeId: number) => {
+    if (!selectedBuildForSale) return;
+    try {
+      // Формируем заказ
+      const orderData = {
+        customer: customerData.name,
+        phone: customerData.phone,
+        city: customerData.city,
+        manager: '', // Можно добавить текущего пользователя, если есть
+        items: selectedBuildForSale.components.map((c: any) => ({
+          id: c.component.id,
+          name: c.component.name,
+          price: c.component.price,
+          quantity: 1
+        })),
+        total: selectedBuildForSale.finalPrice,
+        notes: `Продажа сборки ПК: ${selectedBuildForSale.name} (buildId: ${selectedBuildForSale.id})\nМагазин: ${storeId}`
+      };
+      await ordersApi.add(orderData);
+      alert(`Сборка "${selectedBuildForSale.name}" продана клиенту ${customerData.name} и заказ создан!`);
+      setIsSellModalOpen(false);
+    } catch (e: any) {
+      alert('Ошибка при создании заказа: ' + e.message);
+    }
   };
 
   const handlePublishBuild = async (buildId: number) => {
@@ -184,6 +203,7 @@ export function PCBuilderPage() {
     }
   };
 
+  // Корректный возврат JSX
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -196,7 +216,6 @@ export function PCBuilderPage() {
           Создать сборку
         </Button>
       </div>
-
       {/* Фильтры */}
       <Card>
         <CardContent className="p-6">
@@ -223,7 +242,6 @@ export function PCBuilderPage() {
           </div>
         </CardContent>
       </Card>
-
       {/* Таблица сборок */}
       <Card>
         <CardHeader>
@@ -258,155 +276,152 @@ export function PCBuilderPage() {
                   <tr>
                     <td colSpan={9} className="py-8 text-center">Сборок не найдено.</td>
                   </tr>
-                ) : (
-                  filteredBuilds.map((build) => (
+                ) : filteredBuilds.map((build) =>
                   <tr key={build.id} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <div className="font-medium">{build.name}</div>
-                      {build.isCompatible ? (
-                        <div className="flex items-center gap-1 text-green-600 text-xs">
-                          <CheckCircle className="h-3 w-3" />
-                          Совместимо
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-red-600 text-xs">
-                          <AlertCircle className="h-3 w-3" />
-                          Несовместимо
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">
-                      {build.description}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-medium">{build.totalPrice.toLocaleString()} ₽</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      {editingPrices[build.id] ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            value={tempMarkup[build.id]?.value || 0}
-                            onChange={(e) => setTempMarkup({
-                              ...tempMarkup,
-                              [build.id]: {
-                                ...tempMarkup[build.id],
-                                value: Number(e.target.value)
-                              }
-                            })}
-                            className="w-20"
-                          />
-                          <Select
-                            value={tempMarkup[build.id]?.type || 'percentage'}
-                            onValueChange={(value: 'percentage' | 'fixed') => setTempMarkup({
-                              ...tempMarkup,
-                              [build.id]: {
-                                ...tempMarkup[build.id],
-                                type: value
-                              }
-                            })}
-                          >
-                            <SelectTrigger className="w-20">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="percentage">%</SelectItem>
-                              <SelectItem value="fixed">₽</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button size="sm" onClick={() => handleSavePrices(build.id)}>
-                            <Save className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleCancelEditPrices(build.id)}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {build.markup} {build.markupType === 'percentage' ? '%' : '₽'}
-                          </span>
-                          <Button size="sm" variant="ghost" onClick={() => handleEditPrices(build.id)}>
-                            <DollarSign className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-medium text-green-600">{build.finalPrice.toLocaleString()} ₽</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-medium text-blue-600">+{build.profit.toLocaleString()} ₽</div>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">
-                      {build.createdAt}
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge variant={build.status === 'published' ? 'default' : 'secondary'}>
-                        {statusLabels[build.status]}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-2">
-                        {build.status === 'draft' && (
+                      <td className="py-3 px-4">
+                        <div className="font-medium">{build.name}</div>
+                        {build.isCompatible ? (
+                          <div className="flex items-center gap-1 text-green-600 text-xs">
+                            <CheckCircle className="h-3 w-3" />
+                            Совместимо
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-red-600 text-xs">
+                            <AlertCircle className="h-3 w-3" />
+                            Несовместимо
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {build.description}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-medium">{build.totalPrice.toLocaleString()} ₽</div>
+                      </td>
+                      <td className="py-3 px-4">
+                        {editingPrices[build.id] ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={tempMarkup[build.id]?.value || 0}
+                              onChange={(e) => setTempMarkup({
+                                ...tempMarkup,
+                                [build.id]: {
+                                  ...tempMarkup[build.id],
+                                  value: Number(e.target.value)
+                                }
+                              })}
+                              className="w-20"
+                            />
+                            <Select
+                              value={tempMarkup[build.id]?.type || 'percentage'}
+                              onValueChange={(value: 'percentage' | 'fixed') => setTempMarkup({
+                                ...tempMarkup,
+                                [build.id]: {
+                                  ...tempMarkup[build.id],
+                                  type: value
+                                }
+                              })}
+                            >
+                              <SelectTrigger className="w-20">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="percentage">%</SelectItem>
+                                <SelectItem value="fixed">₽</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button size="sm" onClick={() => handleSavePrices(build.id)}>
+                              <Save className="h-3 w-3" />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleCancelEditPrices(build.id)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">
+                              {build.markup} {build.markupType === 'percentage' ? '%' : '₽'}
+                            </span>
+                            <Button size="sm" variant="ghost" onClick={() => handleEditPrices(build.id)}>
+                              <DollarSign className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-green-600">{build.finalPrice.toLocaleString()} ₽</div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-blue-600">+{build.profit.toLocaleString()} ₽</div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {build.createdAt}
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge variant={build.status === 'published' ? 'default' : 'secondary'}>
+                          {statusLabels[build.status]}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex gap-2">
+                          {build.status === 'draft' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePublishBuild(build.id)}
+                              className="gap-1"
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                              Опубликовать
+                            </Button>
+                          )}
+                          
+                          {build.status === 'published' && build.isCompatible && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleSellBuild(build)}
+                              className="gap-1"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Продать
+                            </Button>
+                          )}
+                          
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handlePublishBuild(build.id)}
                             className="gap-1"
                           >
-                            <CheckCircle className="h-3 w-3" />
-                            Опубликовать
+                            <Edit className="h-3 w-3" />
+                            Изменить
                           </Button>
-                        )}
-                        
-                        {build.status === 'published' && build.isCompatible && (
+                          
                           <Button
-                            variant="default"
+                            variant="destructive"
                             size="sm"
-                            onClick={() => handleSellBuild(build)}
+                            onClick={() => handleDeleteBuild(build.id)}
                             className="gap-1"
                           >
-                            <Plus className="h-3 w-3" />
-                            Продать
+                            <Trash2 className="h-3 w-3" />
+                            Удалить
                           </Button>
-                        )}
-                        
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1"
-                        >
-                          <Edit className="h-3 w-3" />
-                          Изменить
-                        </Button>
-                        
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteBuild(build.id)}
-                          className="gap-1"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          Удалить
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                )}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
-
       {/* Модальное окно создания сборки */}
       <CreatePCBuildModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         onSubmit={handleCreateBuild}
       />
-
       {/* Модальное окно продажи сборки */}
       <SellBuildModal
         open={isSellModalOpen}

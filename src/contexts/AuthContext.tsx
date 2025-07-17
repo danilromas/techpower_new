@@ -52,41 +52,17 @@ const testUsers: Record<string, { password: string; user: User }> = {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    // Проверяем сохраненную сессию
-    const savedUser = localStorage.getItem('authUser');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-      setIsAuthenticated(true);
-    }
-  }, []);
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    const userRecord = testUsers[email];
-    
-    if (userRecord && userRecord.password === password) {
-      setUser(userRecord.user);
-      setIsAuthenticated(true);
-      localStorage.setItem('authUser', JSON.stringify(userRecord.user));
-      return true;
-    }
-    
-    return false;
+  // Всегда авторизован как admin
+  const user = {
+    id: 1,
+    email: 'admin@techpower.ru',
+    name: 'Александр Админов',
+    role: 'admin' as UserRole
   };
-
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('authUser');
-  };
-
-  const hasRole = (roles: UserRole[]): boolean => {
-    return user ? roles.includes(user.role) : false;
-  };
-
+  const isAuthenticated = true;
+  const login = async () => true;
+  const logout = () => {};
+  const hasRole = (roles: UserRole[]): boolean => true;
   return (
     <AuthContext.Provider value={{
       user,
