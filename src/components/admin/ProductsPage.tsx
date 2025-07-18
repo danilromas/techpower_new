@@ -14,8 +14,9 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { AddProductModal } from './modals/AddProductModal';
+import { getProducts, setProducts, addProduct, updateProduct, deleteProduct } from "@/api/productsApi";
 
-interface Product {
+export interface Product {
   id: number;
   name: string;
   brand: string;
@@ -75,12 +76,14 @@ const categoryLabels = {
 };
 
 export function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProductsState] = useState<Product[]>(getProducts());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'price' | 'stock' | 'name'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -96,12 +99,29 @@ export function ProductsPage() {
   });
 
   const handleAddProduct = (productData: any) => {
-    const newProduct = {
-      ...productData,
-      id: Math.max(...products.map(p => p.id)) + 1,
-      image: '/placeholder.svg'
-    };
-    setProducts([...products, newProduct]);
+    const newProduct = addProduct(productData);
+    const updated = getProducts();
+    setProductsState(updated);
+  };
+
+  const handleDeleteProduct = (id: number) => {
+    if (window.confirm('Удалить этот товар?')) {
+      deleteProduct(id);
+      setProductsState(getProducts());
+    }
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditProduct(product);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateProduct = (productData: any) => {
+    if (!editProduct) return;
+    updateProduct(editProduct.id, productData);
+    setProductsState(getProducts());
+    setIsEditModalOpen(false);
+    setEditProduct(null);
   };
 
   return (
@@ -206,11 +226,11 @@ export function ProductsPage() {
                     <td className="py-3 px-4">{product.stock} шт.</td>
                     <td className="py-3 px-4">
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="gap-1">
+                        <Button variant="outline" size="sm" className="gap-1" onClick={() => handleEditProduct(product)}>
                           <Edit className="h-3 w-3" />
                           Изменить
                         </Button>
-                        <Button variant="destructive" size="sm" className="gap-1">
+                        <Button variant="destructive" size="sm" className="gap-1" onClick={() => handleDeleteProduct(product.id)}>
                           <Trash2 className="h-3 w-3" />
                           Удалить
                         </Button>
@@ -229,6 +249,21 @@ export function ProductsPage() {
         open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
         onSubmit={handleAddProduct}
+      />
+      <AddProductModal
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        onSubmit={handleUpdateProduct}
+        initialData={editProduct ? {
+          name: editProduct.name,
+          brand: editProduct.brand,
+          category: editProduct.category,
+          price: editProduct.price,
+          stock: editProduct.stock,
+          description: editProduct.description,
+          specifications: editProduct.specifications
+        } : undefined}
+        editMode={true}
       />
     </div>
   );

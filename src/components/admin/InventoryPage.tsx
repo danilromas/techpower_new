@@ -5,6 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Package, AlertTriangle, Plus, Minus } from 'lucide-react';
+import { getInventory, setInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem } from "@/api/inventoryApi";
+
+export interface InventoryItem {
+  id: number;
+  name: string;
+  category: string;
+  stock: number;
+  minStock: number;
+  price: number;
+  supplier: string;
+}
 
 const mockInventory = [
   { id: 1, name: 'Intel Core i5-13400F', category: 'Процессоры', stock: 15, minStock: 5, price: 18000, supplier: 'DNS' },
@@ -16,7 +27,7 @@ const mockInventory = [
 
 export function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [inventory, setInventory] = useState(mockInventory);
+  const [inventory, setInventoryState] = useState(getInventory());
 
   const filteredInventory = inventory.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -26,11 +37,10 @@ export function InventoryPage() {
   const lowStockItems = inventory.filter(item => item.stock <= item.minStock);
 
   const updateStock = (id: number, change: number) => {
-    setInventory(prev => prev.map(item => 
-      item.id === id 
-        ? { ...item, stock: Math.max(0, item.stock + change) }
-        : item
-    ));
+    const item = inventory.find(i => i.id === id);
+    if (!item) return;
+    updateInventoryItem(id, { stock: Math.max(0, item.stock + change) });
+    setInventoryState(getInventory());
   };
 
   const getStockBadge = (stock: number, minStock: number) => {

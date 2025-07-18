@@ -16,6 +16,21 @@ import {
   Plus
 } from 'lucide-react';
 import { SellBuildModal } from './modals/SellBuildModal';
+import { getCustomers, setCustomers, addCustomer, updateCustomer, deleteCustomer } from "@/api/customersApi";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+export interface Customer {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  city: string;
+  totalOrders: number;
+  totalSpent: number;
+  lastOrder: string;
+  status: string;
+  registered: string;
+}
 
 const customers = [
   {
@@ -101,9 +116,38 @@ const availableBuilds = [
 ];
 
 export function CustomersPage() {
+  const [customersData, setCustomersData] = useState(getCustomers());
   const [searchTerm, setSearchTerm] = useState('');
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
   const [selectedBuild, setSelectedBuild] = useState<any>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    city: '',
+    status: 'Новый'
+  });
+  const [formError, setFormError] = useState('');
+
+  const handleAddCustomer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim() || !formData.city.trim()) {
+      setFormError('Заполните все поля');
+      return;
+    }
+    addCustomer({
+      ...formData,
+      totalOrders: 0,
+      totalSpent: 0,
+      lastOrder: '',
+      registered: new Date().toISOString().split('T')[0],
+    });
+    setCustomersData(getCustomers());
+    setIsAddModalOpen(false);
+    setFormData({ name: '', email: '', phone: '', city: '', status: 'Новый' });
+    setFormError('');
+  };
 
   const handleQuickSell = (build: any) => {
     setSelectedBuild(build);
@@ -133,7 +177,7 @@ export function CustomersPage() {
     );
   };
 
-  const filteredCustomers = customers.filter(customer => {
+  const filteredCustomers = customersData.filter(customer => {
     return customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
            customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
            customer.city.toLowerCase().includes(searchTerm.toLowerCase());
@@ -141,10 +185,10 @@ export function CustomersPage() {
 
   const getCustomerStats = () => {
     return {
-      total: customers.length,
-      vip: customers.filter(c => c.status === 'VIP').length,
-      regular: customers.filter(c => c.status === 'Постоянный').length,
-      new: customers.filter(c => c.status === 'Новый').length,
+      total: customersData.length,
+      vip: customersData.filter(c => c.status === 'VIP').length,
+      regular: customersData.filter(c => c.status === 'Постоянный').length,
+      new: customersData.filter(c => c.status === 'Новый').length,
     };
   };
 
@@ -158,6 +202,10 @@ export function CustomersPage() {
           <p className="text-gray-600 mt-1">База данных клиентов и история покупок</p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => setIsAddModalOpen(true)} variant="default" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Добавить клиента
+          </Button>
           {availableBuilds.map((build) => (
             <Button
               key={build.id}
@@ -323,6 +371,27 @@ export function CustomersPage() {
         build={selectedBuild}
         onSell={handleBuildSold}
       />
+
+      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Добавить клиента</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddCustomer} className="space-y-4">
+            <Input placeholder="Имя" value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} />
+            <Input placeholder="Email" value={formData.email} onChange={e => setFormData(f => ({ ...f, email: e.target.value }))} />
+            <Input placeholder="Телефон" value={formData.phone} onChange={e => setFormData(f => ({ ...f, phone: e.target.value }))} />
+            <Input placeholder="Город" value={formData.city} onChange={e => setFormData(f => ({ ...f, city: e.target.value }))} />
+            <select value={formData.status} onChange={e => setFormData(f => ({ ...f, status: e.target.value }))} className="w-full px-3 py-2 border rounded-md">
+              <option value="Новый">Новый</option>
+              <option value="Постоянный">Постоянный</option>
+              <option value="VIP">VIP</option>
+            </select>
+            {formError && <div className="text-red-600 text-sm">{formError}</div>}
+            <Button type="submit" className="w-full">Добавить</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -6,49 +6,86 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Package, Download, FileText } from 'lucide-react';
-
-const salesData = [
-  { month: 'Янв', sales: 450000, orders: 25 },
-  { month: 'Фев', sales: 520000, orders: 30 },
-  { month: 'Мар', sales: 680000, orders: 38 },
-  { month: 'Апр', sales: 750000, orders: 42 },
-  { month: 'Май', sales: 890000, orders: 48 },
-  { month: 'Июн', sales: 920000, orders: 52 }
-];
-
-const categoryData = [
-  { name: 'Процессоры', value: 35, color: '#8884d8' },
-  { name: 'Видеокарты', value: 25, color: '#82ca9d' },
-  { name: 'Память', value: 15, color: '#ffc658' },
-  { name: 'Накопители', value: 12, color: '#ff7300' },
-  { name: 'Прочее', value: 13, color: '#00ff00' }
-];
-
-const topProducts = [
-  { name: 'Intel Core i5-13400F', sales: 45, revenue: 810000 },
-  { name: 'RTX 4060 Ti', sales: 32, revenue: 1440000 },
-  { name: 'DDR4 16GB Corsair', sales: 67, revenue: 402000 },
-  { name: 'Samsung 980 Pro 1TB', sales: 38, revenue: 304000 },
-  { name: 'Corsair RM750x', sales: 28, revenue: 336000 }
-];
+import { getOrders } from "@/api/ordersApi";
+import { getProducts } from "@/api/productsApi";
+import { getCustomers } from "@/api/customersApi";
 
 export function ReportsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedReport, setSelectedReport] = useState('sales');
 
-  const currentMonth = {
-    revenue: 920000,
-    orders: 52,
-    customers: 38,
-    avgOrder: 17692
-  };
+  const orders = getOrders();
+  const products = getProducts();
+  const customers = getCustomers();
 
-  const previousMonth = {
-    revenue: 890000,
-    orders: 48,
-    customers: 35,
-    avgOrder: 18542
+  // Группировка заказов по месяцам
+  const groupByMonth = (ordersArr: typeof orders) => {
+    const byMonth: Record<string, typeof orders> = {};
+    ordersArr.forEach(order => {
+      const month = order.date.slice(0, 7); // YYYY-MM
+      if (!byMonth[month]) byMonth[month] = [];
+      byMonth[month].push(order);
+    });
+    return byMonth;
   };
+  const ordersByMonth = groupByMonth(orders);
+  const months = Object.keys(ordersByMonth).sort();
+  const lastMonth = months[months.length - 1];
+  const prevMonth = months[months.length - 2];
+
+  // Метрики по месяцам
+  const calcMonthStats = (month: string | undefined) => {
+    if (!month) return { revenue: 0, orders: 0, customers: 0, avgOrder: 0 };
+    const monthOrders = ordersByMonth[month] || [];
+    const revenue = monthOrders.reduce((sum, o) => sum + o.total, 0);
+    const ordersCount = monthOrders.length;
+    const customerIds = new Set(monthOrders.map(o => o.customer));
+    const customersCount = customerIds.size;
+    const avgOrder = ordersCount ? Math.round(revenue / ordersCount) : 0;
+    return { revenue, orders: ordersCount, customers: customersCount, avgOrder };
+  };
+  const currentMonth = calcMonthStats(lastMonth);
+  const previousMonth = calcMonthStats(prevMonth);
+
+  // Динамика продаж (по месяцам)
+  const salesData = months.map(month => ({
+    month,
+    sales: ordersByMonth[month].reduce((sum, o) => sum + o.total, 0),
+    orders: ordersByMonth[month].length
+  }));
+
+  // Продажи по категориям
+  const categoryCount: Record<string, number> = {};
+  orders.forEach(order => {
+    if (Array.isArray(order.items)) {
+      order.items.forEach((item: any) => {
+        const product = products.find(p => p.name === item.name);
+        const category = product?.category || 'Прочее';
+        categoryCount[category] = (categoryCount[category] || 0) + (item.quantity || 1);
+      });
+    }
+  });
+  const totalCategory = Object.values(categoryCount).reduce((a, b) => a + b, 0) || 1;
+  const categoryData = Object.entries(categoryCount).map(([name, value], i) => ({
+    name,
+    value: Math.round((value / totalCategory) * 100),
+    color: ["#8884d8", "#82ca9d", "#ffc658", "#ff7300", "#00ff00"][i % 5]
+  }));
+
+  // Топ товаров по продажам
+  const productSales: Record<string, { name: string; sales: number; revenue: number }> = {};
+  orders.forEach(order => {
+    if (Array.isArray(order.items)) {
+      order.items.forEach((item: any) => {
+        if (!productSales[item.name]) productSales[item.name] = { name: item.name, sales: 0, revenue: 0 };
+        productSales[item.name].sales += item.quantity || 1;
+        productSales[item.name].revenue += (item.price || 0) * (item.quantity || 1);
+      });
+    }
+  });
+  const topProducts = Object.values(productSales)
+    .sort((a, b) => b.sales - a.sales)
+    .slice(0, 5);
 
   const getChangePercent = (current: number, previous: number) => {
     return ((current - previous) / previous * 100).toFixed(1);

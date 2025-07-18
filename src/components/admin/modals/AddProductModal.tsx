@@ -23,17 +23,27 @@ interface AddProductModalProps {
     description: string;
     specifications: string;
   }) => void;
+  initialData?: {
+    name: string;
+    brand: string;
+    category: string;
+    price: number;
+    stock: number;
+    description: string;
+    specifications: string;
+  };
+  editMode?: boolean;
 }
 
-export function AddProductModal({ open, onOpenChange, onSubmit }: AddProductModalProps) {
+export function AddProductModal({ open, onOpenChange, onSubmit, initialData, editMode }: AddProductModalProps) {
   const [formData, setFormData] = useState({
-    name: '',
-    brand: '',
-    category: 'cpu',
-    price: '',
-    stock: '',
-    description: '',
-    specifications: ''
+    name: initialData?.name || '',
+    brand: initialData?.brand || '',
+    category: initialData?.category || 'cpu',
+    price: initialData?.price?.toString() || '',
+    stock: initialData?.stock?.toString() || '',
+    description: initialData?.description || '',
+    specifications: initialData?.specifications || ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,6 +58,18 @@ export function AddProductModal({ open, onOpenChange, onSubmit }: AddProductModa
     { value: 'case', label: 'Корпуса' },
     { value: 'cooling', label: 'Охлаждение' }
   ];
+
+  React.useEffect(() => {
+    setFormData({
+      name: initialData?.name || '',
+      brand: initialData?.brand || '',
+      category: initialData?.category || 'cpu',
+      price: initialData?.price?.toString() || '',
+      stock: initialData?.stock?.toString() || '',
+      description: initialData?.description || '',
+      specifications: initialData?.specifications || ''
+    });
+  }, [initialData, open]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -138,7 +160,7 @@ export function AddProductModal({ open, onOpenChange, onSubmit }: AddProductModa
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Добавить товар</DialogTitle>
+          <DialogTitle>{editMode ? 'Редактировать товар' : 'Добавить товар'}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -244,7 +266,7 @@ export function AddProductModal({ open, onOpenChange, onSubmit }: AddProductModa
               Отмена
             </Button>
             <Button type="submit" className="flex-1">
-              Добавить товар
+              {editMode ? 'Сохранить изменения' : 'Добавить товар'}
             </Button>
           </div>
         </form>

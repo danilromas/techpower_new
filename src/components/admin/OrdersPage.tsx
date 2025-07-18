@@ -27,6 +27,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getOrders, setOrders, addOrder, updateOrder, deleteOrder } from "@/api/ordersApi";
+
+export interface Order {
+  id: string;
+  customer: string;
+  phone: string;
+  city: string;
+  total: number;
+  status: string;
+  date: string;
+  items: number;
+  manager: string;
+}
 
 const orders = [
   {
@@ -93,7 +106,7 @@ export function OrdersPage() {
   const [changeStatusModal, setChangeStatusModal] = useState(false);
   const [addOrderModal, setAddOrderModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [ordersData, setOrdersData] = useState(orders);
+  const [ordersData, setOrdersData] = useState(getOrders());
   const { toast } = useToast();
 
   const getStatusBadge = (status: string) => {
@@ -127,12 +140,8 @@ export function OrdersPage() {
   };
 
   const handleStatusChange = (orderId: string, newStatus: string, comment: string) => {
-    setOrdersData(prevOrders =>
-      prevOrders.map(order =>
-        order.id === orderId ? { ...order, status: newStatus } : order
-      )
-    );
-    
+    updateOrder(orderId, { status: newStatus });
+    setOrdersData(getOrders());
     toast({
       title: "Статус изменен",
       description: `Статус заказа ${orderId} изменен на "${newStatus}"`,
@@ -140,19 +149,11 @@ export function OrdersPage() {
   };
 
   const handleAddOrder = (newOrderData: any) => {
-    const newOrder = {
-      id: `#ORD-${String(ordersData.length + 1).padStart(3, '0')}`,
-      ...newOrderData,
-      date: new Date().toISOString().split('T')[0],
-      items: newOrderData.items.length,
-      status: 'Принят'
-    };
-
-    setOrdersData([newOrder, ...ordersData]);
-    
+    addOrder({ ...newOrderData, status: 'Принят', date: new Date().toISOString().split('T')[0], items: newOrderData.items.length });
+    setOrdersData(getOrders());
     toast({
       title: "Заказ создан",
-      description: `Новый заказ ${newOrder.id} успешно создан`,
+      description: `Новый заказ ${newOrderData.id} успешно создан`,
     });
   };
 

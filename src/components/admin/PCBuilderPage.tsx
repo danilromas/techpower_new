@@ -24,8 +24,10 @@ import {
 } from "@/components/ui/select";
 import { CreatePCBuildModal } from './modals/CreatePCBuildModal';
 import { SellBuildModal } from './modals/SellBuildModal';
+import { getPCBuilds, setPCBuilds, addPCBuild, updatePCBuild, deletePCBuild } from "@/api/pcbuildsApi";
+import { addOrder } from "@/api/ordersApi";
 
-interface PCBuild {
+export interface PCBuild {
   id: number;
   name: string;
   description: string;
@@ -96,7 +98,7 @@ const statusLabels = {
 };
 
 export function PCBuilderPage() {
-  const [builds, setBuilds] = useState<PCBuild[]>(mockBuilds);
+  const [builds, setBuilds] = useState<PCBuild[]>(getPCBuilds());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -126,11 +128,11 @@ export function PCBuilderPage() {
       ...buildData,
       finalPrice,
       profit,
-      id: Math.max(...builds.map(b => b.id)) + 1,
       createdAt: new Date().toISOString().split('T')[0],
       status: 'draft' as const
     };
-    setBuilds([...builds, newBuild]);
+    addPCBuild(newBuild);
+    setBuilds(getPCBuilds());
   };
 
   const handleEditPrices = (buildId: number) => {
@@ -183,12 +185,21 @@ export function PCBuilderPage() {
   };
 
   const handleBuildSold = (customerId: number, buildId: number, customerData: any, storeId: number) => {
-    console.log('Сборка продана:', { customerId, buildId, customerData, storeId });
-    // Здесь можно добавить логику создания заказа
-    const storeName = storeId === 1 ? 'Магазин на Тверской' : 
-                     storeId === 2 ? 'Магазин в ТЦ Европейский' : 
-                     storeId === 3 ? 'Магазин на Арбате' : 'Интернет-магазин';
-    alert(`Сборка "${selectedBuildForSale?.name}" продана клиенту ${customerData.name} через ${storeName}`);
+    const build = builds.find(b => b.id === buildId);
+    if (!build) return;
+    // Формируем заказ
+    const order = {
+      customer: customerData.name,
+      phone: customerData.phone || '',
+      city: customerData.city || '',
+      manager: '',
+      items: build.components.length,
+      total: build.finalPrice,
+      status: 'Принят',
+      date: new Date().toISOString().split('T')[0],
+    };
+    addOrder(order);
+    alert(`Сборка "${build.name}" продана клиенту ${customerData.name}. Заказ создан!`);
   };
 
   const handlePublishBuild = (buildId: number) => {
@@ -209,7 +220,8 @@ export function PCBuilderPage() {
 
   const handleDeleteBuild = (buildId: number) => {
     if (confirm('Вы уверены, что хотите удалить эту сборку?')) {
-      setBuilds(builds.filter(build => build.id !== buildId));
+      deletePCBuild(buildId);
+      setBuilds(getPCBuilds());
     }
   };
 

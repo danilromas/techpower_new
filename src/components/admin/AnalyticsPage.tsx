@@ -11,41 +11,80 @@ import {
   Package 
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-
-const salesData = [
-  { month: 'Янв', revenue: 1200000, orders: 45, profit: 240000 },
-  { month: 'Фев', revenue: 1900000, orders: 67, profit: 380000 },
-  { month: 'Мар', revenue: 1500000, orders: 52, profit: 300000 },
-  { month: 'Апр', revenue: 2200000, orders: 78, profit: 440000 },
-  { month: 'Май', revenue: 2800000, orders: 95, profit: 560000 },
-  { month: 'Июн', revenue: 3200000, orders: 112, profit: 640000 },
-];
-
-const topProducts = [
-  { name: 'RTX 4070 Ti Super', sales: 45, revenue: 4049550 },
-  { name: 'Intel Core i7-13700K', sales: 38, revenue: 1367620 },
-  { name: 'DDR5-6000 32GB', sales: 52, revenue: 675480 },
-  { name: 'Samsung 980 PRO 1TB', sales: 67, revenue: 602330 },
-  { name: 'ASUS ROG STRIX Z790', sales: 28, revenue: 1287720 },
-];
-
-const cityData = [
-  { city: 'Москва', orders: 45, revenue: 1250000 },
-  { city: 'СПб', orders: 32, revenue: 890000 },
-  { city: 'Казань', orders: 18, revenue: 480000 },
-  { city: 'Екатеринбург', orders: 15, revenue: 420000 },
-  { city: 'Новосибирск', orders: 12, revenue: 340000 },
-];
-
-const categoryDistribution = [
-  { name: 'Видеокарты', value: 35, color: '#3B82F6' },
-  { name: 'Процессоры', value: 25, color: '#10B981' },
-  { name: 'ОЗУ', value: 20, color: '#F59E0B' },
-  { name: 'SSD/HDD', value: 15, color: '#EF4444' },
-  { name: 'Прочее', value: 5, color: '#8B5CF6' },
-];
+import { getOrders } from "@/api/ordersApi";
+import { getProducts } from "@/api/productsApi";
+import { getCustomers } from "@/api/customersApi";
 
 export function AnalyticsPage() {
+  const orders = getOrders();
+  const products = getProducts();
+  const customers = getCustomers();
+
+  // Выручка и прибыль по месяцам
+  const salesByMonth: Record<string, { revenue: number; orders: number; profit: number }> = {};
+  orders.forEach(order => {
+    const month = order.date.slice(0, 7); // YYYY-MM
+    if (!salesByMonth[month]) salesByMonth[month] = { revenue: 0, orders: 0, profit: 0 };
+    salesByMonth[month].revenue += order.total;
+    salesByMonth[month].orders += 1;
+    // Прибыль можно считать как 20% от total (или по-другому, если есть логика)
+    salesByMonth[month].profit += Math.round(order.total * 0.2);
+  });
+  const salesData = Object.entries(salesByMonth).map(([month, data]) => ({
+    month,
+    ...data
+  })).sort((a, b) => a.month.localeCompare(b.month));
+
+  // Топ товаров по продажам (по количеству заказов)
+  const productSales: Record<string, { name: string; sales: number; revenue: number }> = {};
+  orders.forEach(order => {
+    // order.items - если это массив товаров, иначе пропустить
+    if (Array.isArray(order.items)) {
+      order.items.forEach((item: any) => {
+        if (!productSales[item.name]) productSales[item.name] = { name: item.name, sales: 0, revenue: 0 };
+        productSales[item.name].sales += item.quantity || 1;
+        productSales[item.name].revenue += (item.price || 0) * (item.quantity || 1);
+      });
+    }
+  });
+  const topProducts = Object.values(productSales)
+    .sort((a, b) => b.sales - a.sales)
+    .slice(0, 5);
+
+  // Продажи по городам
+  const cityData: Record<string, { city: string; orders: number; revenue: number }> = {};
+  orders.forEach(order => {
+    if (!cityData[order.city]) cityData[order.city] = { city: order.city, orders: 0, revenue: 0 };
+    cityData[order.city].orders += 1;
+    cityData[order.city].revenue += order.total;
+  });
+  const cityDataArr = Object.values(cityData).sort((a, b) => b.revenue - a.revenue);
+
+  // Распределение по категориям (по товарам в заказах)
+  const categoryDistribution: Record<string, number> = {};
+  orders.forEach(order => {
+    if (Array.isArray(order.items)) {
+      order.items.forEach((item: any) => {
+        const product = products.find(p => p.name === item.name);
+        const category = product?.category || 'Прочее';
+        categoryDistribution[category] = (categoryDistribution[category] || 0) + (item.quantity || 1);
+      });
+    }
+  });
+  const totalCategory = Object.values(categoryDistribution).reduce((a, b) => a + b, 0) || 1;
+  const categoryDistributionArr = Object.entries(categoryDistribution).map(([name, value], i) => ({
+    name,
+    value: Math.round((value / totalCategory) * 100),
+    color: ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"][i % 5]
+  }));
+
+  // Ключевые показатели
+  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+  const totalProfit = Math.round(totalRevenue * 0.2);
+  const totalOrders = orders.length;
+  const avgCheck = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
+  const totalClients = customers.length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -63,7 +102,7 @@ export function AnalyticsPage() {
             <DollarSign className="h-4 w-4 opacity-90" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12.8М ₽</div>
+            <div className="text-2xl font-bold">{totalRevenue.toLocaleString()} ₽</div>
             <div className="flex items-center text-xs opacity-90">
               <TrendingUp className="h-3 w-3 mr-1" />
               +15.2% к предыдущему периоду
@@ -77,7 +116,7 @@ export function AnalyticsPage() {
             <TrendingUp className="h-4 w-4 opacity-90" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">2.56М ₽</div>
+            <div className="text-2xl font-bold">{totalProfit.toLocaleString()} ₽</div>
             <div className="flex items-center text-xs opacity-90">
               <TrendingUp className="h-3 w-3 mr-1" />
               Маржа: 20%
@@ -91,10 +130,10 @@ export function AnalyticsPage() {
             <ShoppingCart className="h-4 w-4 opacity-90" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">449</div>
+            <div className="text-2xl font-bold">{totalOrders}</div>
             <div className="flex items-center text-xs opacity-90">
               <TrendingUp className="h-3 w-3 mr-1" />
-              Ср. чек: 28,507 ₽
+              Ср. чек: {avgCheck} ₽
             </div>
           </CardContent>
         </Card>
@@ -105,7 +144,7 @@ export function AnalyticsPage() {
             <Users className="h-4 w-4 opacity-90" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">267</div>
+            <div className="text-2xl font-bold">{totalClients}</div>
             <div className="flex items-center text-xs opacity-90">
               <TrendingUp className="h-3 w-3 mr-1" />
               +18.3% новых клиентов
@@ -186,7 +225,7 @@ export function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {cityData.map((city, index) => (
+              {cityDataArr.map((city, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <p className="font-medium">{city.city}</p>
@@ -218,7 +257,7 @@ export function AnalyticsPage() {
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
-                  data={categoryDistribution}
+                  data={categoryDistributionArr}
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
@@ -226,7 +265,7 @@ export function AnalyticsPage() {
                   dataKey="value"
                   label={({ name, value }) => `${name}: ${value}%`}
                 >
-                  {categoryDistribution.map((entry, index) => (
+                  {categoryDistributionArr.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -235,7 +274,7 @@ export function AnalyticsPage() {
             </ResponsiveContainer>
             
             <div className="space-y-3">
-              {categoryDistribution.map((category, index) => (
+              {categoryDistributionArr.map((category, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div 

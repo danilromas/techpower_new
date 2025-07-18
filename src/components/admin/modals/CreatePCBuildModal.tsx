@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X, Plus, AlertCircle, CheckCircle, Calculator } from 'lucide-react';
+import { getProducts } from "@/api/productsApi";
 
 interface CreatePCBuildModalProps {
   open: boolean;
@@ -33,49 +34,6 @@ interface CreatePCBuildModalProps {
   }) => void;
 }
 
-const mockComponents = {
-  cpu: [
-    { id: 1, name: 'Intel Core i5-13600K', price: 25000, socket: 'LGA1700' },
-    { id: 2, name: 'AMD Ryzen 5 7600X', price: 23000, socket: 'AM5' },
-    { id: 3, name: 'Intel Core i7-13700K', price: 35000, socket: 'LGA1700' }
-  ],
-  gpu: [
-    { id: 4, name: 'RTX 4070', price: 55000, power: 200 },
-    { id: 5, name: 'RTX 4060', price: 35000, power: 115 },
-    { id: 6, name: 'RX 7800 XT', price: 50000, power: 263 }
-  ],
-  ram: [
-    { id: 7, name: 'Corsair 16GB DDR4-3200', price: 6000, type: 'DDR4', capacity: 16 },
-    { id: 8, name: 'G.Skill 32GB DDR5-5600', price: 15000, type: 'DDR5', capacity: 32 },
-    { id: 9, name: 'Kingston 16GB DDR5-4800', price: 8000, type: 'DDR5', capacity: 16 }
-  ],
-  motherboard: [
-    { id: 10, name: 'ASUS Z790-P', price: 18000, socket: 'LGA1700', ramType: 'DDR5' },
-    { id: 11, name: 'MSI B650M Pro', price: 12000, socket: 'AM5', ramType: 'DDR5' },
-    { id: 12, name: 'Gigabyte B760M DS3H', price: 8000, socket: 'LGA1700', ramType: 'DDR4' }
-  ],
-  storage: [
-    { id: 19, name: 'Samsung 980 Pro 1TB NVMe', price: 8000, type: 'NVMe SSD', capacity: 1000 },
-    { id: 20, name: 'Kingston NV2 500GB', price: 4000, type: 'NVMe SSD', capacity: 500 },
-    { id: 21, name: 'Seagate Barracuda 1TB HDD', price: 3500, type: 'HDD', capacity: 1000 }
-  ],
-  psu: [
-    { id: 13, name: 'Corsair RM750x', price: 12000, power: 750 },
-    { id: 14, name: 'EVGA 650W Gold', price: 8000, power: 650 },
-    { id: 15, name: 'Seasonic Focus 850W', price: 15000, power: 850 }
-  ],
-  cooler: [
-    { id: 22, name: 'Noctua NH-D15', price: 7000, type: 'Air', socket: ['LGA1700', 'AM5'] },
-    { id: 23, name: 'be quiet! Pure Rock 2', price: 3500, type: 'Air', socket: ['LGA1700', 'AM5'] },
-    { id: 24, name: 'Corsair H100i RGB', price: 12000, type: 'AIO', socket: ['LGA1700', 'AM5'] }
-  ],
-  case: [
-    { id: 16, name: 'Fractal Design Define 7', price: 15000 },
-    { id: 17, name: 'NZXT H7 Flow', price: 12000 },
-    { id: 18, name: 'Cooler Master MasterBox Q300L', price: 4000 }
-  ]
-};
-
 export function CreatePCBuildModal({ open, onOpenChange, onSubmit }: CreatePCBuildModalProps) {
   const [buildName, setBuildName] = useState('');
   const [description, setDescription] = useState('');
@@ -83,6 +41,14 @@ export function CreatePCBuildModal({ open, onOpenChange, onSubmit }: CreatePCBui
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [markup, setMarkup] = useState(15);
   const [markupType, setMarkupType] = useState<'percentage' | 'fixed'>('percentage');
+
+  // Получаем актуальные комплектующие из localStorage
+  const products = getProducts();
+  const componentsByCategory: Record<string, any[]> = {};
+  products.forEach((p) => {
+    if (!componentsByCategory[p.category]) componentsByCategory[p.category] = [];
+    componentsByCategory[p.category].push(p);
+  });
 
   const componentTypes = [
     { key: 'cpu', label: 'Процессор', required: true },
@@ -282,7 +248,7 @@ export function CreatePCBuildModal({ open, onOpenChange, onSubmit }: CreatePCBui
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {mockComponents[type.key as keyof typeof mockComponents]?.map((component) => (
+                    {componentsByCategory[type.key as keyof typeof componentsByCategory]?.map((component) => (
                       <div
                         key={component.id}
                         className="flex items-center justify-between p-2 border rounded hover:bg-muted/50 cursor-pointer"
